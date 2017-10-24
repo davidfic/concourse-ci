@@ -29,7 +29,6 @@
      name: concourse
      login_user: postgres
      
-
 # create ssh keys
 - name: generate ssh keys
   shell: ssh-keygen -t rsa -q -N '' -f /etc/concourse/{{item}} 
@@ -39,7 +38,6 @@
     - tsa_host_key
     - worker_key
     - session_signing_key
-
 
 #get concourse and fly binaries
 - name: download concourse and fly binaries
@@ -60,10 +58,10 @@
 - name: create etc files
   template:
     src: "{{item.template_name}}"
-    dest: "/etc/concourse/{{item.test_name}}"
+    dest: "/etc/concourse/{{item.name}}"
   with_items:
-    - { template_name: web_environment.j2, test_name: web_environment }
-    - { template_name: worker_environment.j2, test_name: worker_environment }
+    - { template_name: web_environment.j2, name: web_environment }
+    - { template_name: worker_environment.j2, name: worker_environment }
 
 - name: add concourse group
   group: 
