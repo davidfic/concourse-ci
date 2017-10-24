@@ -1,0 +1,103 @@
+---
+# tasks file for concourse
+#
+- name: install postgres, postgres-contrib and python-pip
+  apt: 
+    name: "{{ item }}" 
+    state: present
+  with_items:
+    - postgresql
+    - postgresql-contrib
+    - python-pip
+
+- name: install psycopg2
+  pip: 
+    name: psycopg2 
+    state: present
+
+
+- name: create postgres database
+  become: true
+  become_user: postgres
+  postgresql_db:
+    name: atc 
+    
+- name: create postgresql user
+  become: true
+  become_user: postgres
+  postgresql_user:
+     name: concourse
+     login_user: postgres
+     
+
+# create ssh keys
+- name: generate ssh keys
+  shell: ssh-keygen -t rsa -q -N '' -f /etc/concourse/{{item}} 
+  args:
+    creates: /etc/concourse/{{item}}
+  with_items:
+    - tsa_host_key
+    - worker_key
+    - session_signing_key
+
+
+#get concourse and fly binaries
+- name: download concourse and fly binaries
+  get_url:
+    url: "{{item.url}}" 
+    dest: /usr/local/bin/{{item.name}}
+    mode: a+x
+  with_items:
+    - { url: 'https://github.com/concourse/concourse/releases/download/v3.5.0/concourse_linux_amd64', name: concourse }
+    - { url: 'https://github.com/concourse/concourse/releases/download/v3.5.0/fly_linux_amd64', name: fly }
+
+- name: make etc directory
+  file: 
+    path: /etc/concourse
+    state: directory
+    mode: 0755
+    
+- name: create etc files
+  template:
+    src: "{{item.template_name}}"
+    dest: "/etc/concourse/{{item.test_name}}"
+  with_items:
+    - { template_name: web_environment.j2, test_name: web_environment }
+    - { template_name: worker_environment.j2, test_name: worker_environment }
+
+- name: add concourse group
+  group: 
+    name: concourse
+    state: present
+
+- name: add concourse user
+  user:
+    name: concourse
+    groups: concourse
+    system: yes
+
+- name: set permissions on /etc/concourse
+  file: 
+    path: /etc/concourse
+    owner: concourse
+    group: concourse
+    mode: 0600  
+    recurse: yes
+
+- name: set firewall
+  ufw: 
+    rule: allow
+    port: 8080
+
+- name: allow routed with ufw
+  ufw:
+    state: enabled
+    policy: allow
+
+- name: start services up
+  systemd: 
+    state: started
+    name: "{{ item }}"
+  with_items:
+    - concourse-web
+    - concourse-worker

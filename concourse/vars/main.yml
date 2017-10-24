@@ -1,0 +1,5 @@
+---
+# vars file for concourse
+username: davidfic
+password: password
+server_public_ip: 10.211.55.26
